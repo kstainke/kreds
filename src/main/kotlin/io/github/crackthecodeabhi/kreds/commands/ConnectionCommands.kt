@@ -31,6 +31,7 @@ internal enum class ClientConnectionCommand(
     override val subCommand: Command? = null,
     override val string: String = "CLIENT"
 ) : Command {
+    CLIENT_TRACKING(TRACKING),
     CLIENT_CACHING(CACHING),
     CLIENT_GETNAME(GETNAME),
     CLIENT_GETREDIR(GETREDIR),
@@ -44,7 +45,7 @@ internal enum class ClientConnectionCommand(
 }
 
 internal enum class ConnectionCommand(command: String? = null, override val subCommand: Command? = null) : Command {
-    AUTH, CACHING, GETNAME, GETREDIR, LIST, NO_EVICT("NO-EVICT"),
+    AUTH, TRACKING, CACHING, GETNAME, GETREDIR, LIST, NO_EVICT("NO-EVICT"),
     ID, INFO, PAUSE, SETNAME, UNPAUSE, ECHO, PING, QUIT, RESET, SELECT;
 
     override val string: String = command ?: name
@@ -73,6 +74,9 @@ internal interface BaseConnectionCommands {
             SimpleStringCommandProcessor,
             if (on) "ON".toArgument() else "OFF".toArgument()
         )
+
+    fun _clientTracking(on: Boolean, optin: Boolean) =
+        CommandExecution(CLIENT_TRACKING, SimpleStringCommandProcessor, *createArguments (if (on) "ON" else "OFF", if(optin) "OPTIN" else "OPTOUT"))
 
     fun _clientCaching(yes: Boolean) =
         CommandExecution(CLIENT_CACHING, SimpleStringCommandProcessor, (if (yes) "YES" else "NO").toArgument())
@@ -119,6 +123,16 @@ public interface ConnectionCommands {
      * @return string reply an error if the password, or username/password pair, is invalid.
      */
     public suspend fun auth(username: String, password: String): String
+
+    /**
+     * ### CLIENT TRACKING ON|OFF OPTIN|OPTOUT
+     *
+     * [Doc](https://redis.io/commands/client-tracking)
+     *
+     * @since 6.0.0
+     * @return OK
+     */
+    public suspend fun clientTracking(on: Boolean, optin: Boolean): String
 
     /**
      * ### CLIENT CACHING YES|NO
@@ -267,6 +281,9 @@ internal interface ConnectionCommandsExecutor : CommandExecutor, ConnectionComma
     override suspend fun auth(password: String): String = execute(_auth(password))
     override suspend fun auth(username: String, password: String): String =
         execute(_auth(username, password))
+
+    override suspend fun clientTracking(on: Boolean, optin: Boolean): String =
+        execute(_clientTracking(on, optin))
 
     override suspend fun clientCaching(yes: Boolean): String =
         execute(_clientCaching(yes))
